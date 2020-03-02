@@ -23,8 +23,10 @@ class Despesa{
 class BD {
     
     constructor(){
+        //id é o auxiliar que indicara o ultimo indice do banco
         let id = localStorage.getItem('id')
 
+        //vendo se existe algum registro no banco se não há, cria id = 0
         if (id === null){
             localStorage.setItem('id',0)
         }
@@ -37,7 +39,7 @@ class BD {
     }
 
     gravar(d){
-        
+        //insere a despesa no local storage
         let id = this.getProximoTd()
         localStorage.setItem(id, JSON.stringify(d))
         localStorage.setItem('id',id)
@@ -46,25 +48,65 @@ class BD {
     recuperarTodosRegistros(){
 
         let despesas = Array()
-        let id = localStorage.getItem('id')
+        let id = localStorage.getItem('id') 
 
         for (let counter=1; counter<=id; counter++){
-
+            //percorrendo todos ids do banco e pegando as despesas
             let despesa = JSON.parse(localStorage.getItem(counter))
 
-            if (!!despesa){ despesas.push(despesa)}
+            if (!!despesa){ //verificando se esse registro não foi apagado
+                despesa.id = counter
+                despesas.push(despesa)
+            }
         }
         return despesas
     }
 
-    pesquisar(despesa){
-        
+    pesquisar(despesa){ //dada um despesa pesquisa as despesas com atributos em comum no local storage
+
+        let despesasFiltradas = Array()
+
+        despesasFiltradas = this.recuperarTodosRegistros()
+
+        //ano
+        if (despesa.ano != '') {
+            despesasFiltradas = despesasFiltradas.filter(d => d.ano == despesa.ano)
+        }
+        //mes
+        if (despesa.mes != '') {
+            despesasFiltradas = despesasFiltradas.filter(d => d.mes == despesa.mes)
+        }
+        //dia
+        if (despesa.dia != '') {
+            despesasFiltradas = despesasFiltradas.filter(d => d.dia == despesa.dia)
+        }
+        //tipo
+        if (despesa.tipo != '') {
+            despesasFiltradas = despesasFiltradas.filter(d => d.tipo == despesa.tipo)
+        }
+        //descricao
+        if (despesa.descricao != '') {
+            despesasFiltradas = despesasFiltradas.filter(d => d.descricao == despesa.descricao)
+        }
+        //valor
+        if (despesa.valor != '') {
+            despesasFiltradas = despesasFiltradas.filter(d => d.valor == despesa.valor)
+        }
+
+        return despesasFiltradas // devolve um array com todas as despesas compatíveis com o filtro
+    }
+
+    remover(id){
+        localStorage.removeItem(id)
     }
 }
 
 let bd = new BD()
 
 function cadastrarDespesa() {
+    //Chamada na pagina de cadastro, pega as informações preenchidas
+    //na página e insere a despesa no local storage
+
     let ano = document.getElementById('ano')
     let mes = document.getElementById('mes')
     let dia = document.getElementById('dia')
@@ -81,7 +123,9 @@ function cadastrarDespesa() {
         valor.value
     )
 
-    if (despesa.validarDados()){
+    //verifica se todos os campos foram preenchidos, se sim,
+    // insere a nova despesa e exibe feedback positivo
+    if (despesa.validarDados()){ 
         
         bd.gravar(despesa)
         
@@ -101,6 +145,9 @@ function cadastrarDespesa() {
         $('#registraDespesa').modal('show')
     }
     else{
+        //verifica se todos os campos foram preenchidos, se não,
+        // avisa o usuário que há dados não preenchidos
+
         document.getElementById("modalLabel").className="modal-title text-danger"
         document.getElementById("modalLabel").innerText="Registro com problemas"
         document.getElementById("modal-text").innerText="Existem campos não preenchidos!"
@@ -110,13 +157,19 @@ function cadastrarDespesa() {
     }
 }
 
-function consultaListaDespesas(){
+function consultaListaDespesas(despesas = Array(), filtro = false){
+    //função que atualiza as despesas na página de consulta
+    // com todas as despesas ou as passadas por parâmetro
 
-    let despesas = Array()
-    despesas = bd.recuperarTodosRegistros()
+    if (despesas.length == 0 &&  filtro == false){
+        despesas = bd.recuperarTodosRegistros()
+    } //se não foram passadas despesas, ou filtro, usa todos os registros do local storage
+    
     var listaDespesas = document.getElementById('listaDespesas')
+    listaDespesas.innerHTML = '' //apaga as despesas no html para inserir as atualizadas
 
-    despesas.forEach( function (desp){
+    despesas.forEach( function (desp){ 
+        //percorre o array com as despesas e insere, uma por uma, na tabela
         
         //criando linha tr
         let linha = listaDespesas.insertRow()
@@ -140,11 +193,28 @@ function consultaListaDespesas(){
         linha.insertCell(1).innerHTML = desp.tipo
         linha.insertCell(2).innerHTML = desp.descricao
         linha.insertCell(3).innerHTML = desp.valor
+        
+        //criando botão para remoção das despesas
+        let btn = document.createElement("button")
+        btn.className = 'btn btn-danger'
+        btn.innerHTML = '<i class="fas fa-times"> </i>'
+        btn.id = `id_despesa_${desp.id}`
+        btn.onclick = function(){
+
+            let id = this.id.replace('id_despesa_','')
+            bd.remover(id)
+            window.location.reload()
+        }
+        linha.insertCell(4).append(btn)
 
     })
 }
 
 function pesquisarDespesa(){
+    //Pega os filtros da página de consulta e chama a função do banco que
+    //filtra as despesas e retorna-as em um array, em seguida, chama a função
+    //que atualiza as despesas da página de consulta
+    
     let ano = document.getElementById('ano').value
     let mes = document.getElementById('mes').value
     let dia = document.getElementById('dia').value
@@ -152,7 +222,7 @@ function pesquisarDespesa(){
     let descricao = document.getElementById('descricao').value
     let valor = document.getElementById('valor').value
 
-    let despesa = (
+    let despesa = new Despesa(
         ano,
         mes,
         dia,
@@ -161,5 +231,7 @@ function pesquisarDespesa(){
         valor
     )
 
-    bd.pesquisar(despesa)
+    let despesas = bd.pesquisar(despesa)
+    
+    consultaListaDespesas(despesas, true) //atualizando a página consulta com as despesas filtradas
 }
